@@ -1,0 +1,17 @@
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/ROSBUILD_genmsg_cpp.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/ROSBUILD_genmsg_lisp.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/ROSBUILD_gensrv_cpp.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/ROSBUILD_gensrv_lisp.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/clean-test-results.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/matrix_transform.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/pointcloud_filtering.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/rosbuild_precompile.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/rosbuild_premsgsrvgen.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/rospack_genmsg.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/rospack_genmsg_libexe.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/rospack_gensrv.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/test.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/test-future.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/test-results.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/test-results-run.dir
+/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/tests.dir
