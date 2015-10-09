@@ -463,7 +463,7 @@ because there is no predefined function that lets you do so
       viewer.setPointCloudRenderingProperties
         (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "icp_cloud");
 
-      viewer.spinOnce (5500);
+      viewer.spinOnce (4500);
 //    }
 
     // Increment the counter for the number of iterations
