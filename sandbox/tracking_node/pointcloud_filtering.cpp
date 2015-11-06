@@ -52,10 +52,6 @@ cloud.
 #include <Eigen/Core>
 #include "tf/transform_datatypes.h"
 
-//#include "crop_box.h"
-//#include <dynamic_reconfigure/server.h>
-//#include "cfg/dynam_reconfig.cfg"
-
 typedef pcl::PointXYZ      Point;
 typedef pcl::PointCloud<Point> PointCloud;
 typedef Eigen::Matrix4f Matrix;
@@ -83,6 +79,7 @@ public :
   bool apply_xyz_limits_;
   bool apply_voxel_grid_;
   bool apply_outlier_removal_;
+  double theta_;
 
 /*
 These are the paramters for icp. This is if I want them to be
@@ -94,12 +91,6 @@ modified from the command line.
   double r_outlier_thres;
 */
 
-  // for manual transforms and bounding box
-  // Note: I didn't get the bounding box idea to work,
-  // nor do I really need it. Just here for reference.
-  double theta_;
-//  Eigen::Vector4d min_pt_;
-//  Eigen::Vector4d max_pt_;
 
   // Global variables
   PointCloud::Ptr obj_model;
@@ -187,12 +178,10 @@ modified from the command line.
   PointCloudFiltering() : nh_private_("~")
   {
     // Read the parameters from the parameter server (set defaults)
-    nh_private_.param("first_iteration", first_it, true);
-    nh_private_.param("num_iterations", num_its, 0);
     nh_private_.param("apply_xyz_limits", apply_xyz_limits_, true);
     nh_private_.param("apply_voxel_grid", apply_voxel_grid_, true);
     nh_private_.param("apply_outlier_removal",
-		      apply_outlier_removal_, true);
+	            	      apply_outlier_removal_, true);
     nh_private_.param("x_filter_min", x_filter_min_, -0.2);
     nh_private_.param("x_filter_max", x_filter_max_, 0.45);
     nh_private_.param("y_filter_min", y_filter_min_, -0.20);
@@ -209,6 +198,8 @@ modified from the command line.
 
     // Angle value used for transforming the point cloud manually
     nh_private_.param("theta", theta_, -M_PI);
+    nh_private_.param("first_iteration", first_it, true);
+    nh_private_.param("num_iterations", num_its, 0);
 
 /*
 icp parameters
@@ -225,8 +216,11 @@ icp parameters
     pcl::PointCloud<pcl::PointXYZ>::Ptr filtered (new pcl::PointCloud<pcl::PointXYZ> ());
     pcl::PointCloud<pcl::PointXYZ>::Ptr icp (new pcl::PointCloud<pcl::PointXYZ> ());
     Eigen::Matrix4f init_transform;
+    fill_matrix(init_transform, 0);
     Eigen::Matrix4f icp_trans;
+    fill_matrix(icp_trans, 0);
     Eigen::Matrix4f bf_transform;
+    fill_matrix(bf_transform, 0);
 
     obj_model = obj;
     initial_guess = guess;
@@ -300,7 +294,7 @@ icp parameters
     // Save the filtered cloud to a pcd file for testing
     pcl::io::savePCDFileASCII("filtered.pcd", *cloud_filtered);
 
-    if(first_it)
+    if (first_it)
     {
       // Set obj_model cloud
       pcl::io::loadPCDFile ("big_triangle.pcd", *obj_model);
@@ -321,9 +315,8 @@ icp parameters
       pcl::transformPointCloud(*obj_model, *initial_guess,
                                initial_transform);
       // Run icp and get the final transformation
-      icp_transform =
-             iterative_closest_point(initial_guess, cloud_filtered,
-                                     0.1, 100, 0.0001, 0.05, 100);
+      iterative_closest_point(initial_guess, cloud_filtered,
+                              0.1, 100, 0.0001, 0.05, 100, icp_transform);
       cout << "ICP transformation - " << endl;
       cout << icp_transform << endl;
 
@@ -371,12 +364,12 @@ icp parameters
       }
 
       // Run icp with original parameters and get the final transformation
-      else {
-        icp_transform = iterative_closest_point(initial_guess,
+//      else {
+          iterative_closest_point(initial_guess,
                                                 cloud_filtered,
                                                 0.01, 150, 0.0001, 0.005,
-                                                150);
-      }
+                                                150, icp_transform);
+//      }
       cout << "ICP transformation - " << endl;
       cout << icp_transform << endl << endl;
 
@@ -612,13 +605,13 @@ icp parameters
   //
   // To speed up icp, decrease the number of iterations and
   // increase the transformation epsilon.
-  Matrix iterative_closest_point(PointCloud::Ptr cloud_in,
+  void iterative_closest_point(PointCloud::Ptr cloud_in,
                                  PointCloud::Ptr cloud_out,
                                  double max_corres_dist,
                                  int max_it,
                                  double transf_epsilon,
                                  double r_outlier_thres,
-                                 int r_max_it)
+                                 int r_max_it, Matrix icp_transf)
   {
     pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
     icp.setInputCloud(cloud_in);
@@ -655,9 +648,9 @@ icp parameters
     << std::endl;
     std::cin >> help;
   */
-
-    // Return the transformation
-    return icp.getFinalTransformation();
+    icp_transf = icp.getFinalTransformation();
+    // Return
+    return;
   }
 
   // Returns true if two arrays are element-wise equal
@@ -686,6 +679,18 @@ icp parameters
         cout << input(i,j) << " ";
       }
       cout << endl;
+    }
+    return;
+  }
+
+  void fill_matrix(Matrix input, float n)
+  {
+    for (int i = 0; i < 4; i++)
+    {
+      for (int j = 0; j < 4; j++)
+      {
+        input(i,j) = n;
+      }
     }
     return;
   }
@@ -748,7 +753,7 @@ icp parameters
   // with a better initial_guess.
   void compute_guess(PointCloud::Ptr source_cloud,
                      PointCloud::Ptr moved_cloud, float radius,
-                     Matrix best_fit_transform)
+                     Matrix best_fit_transf)
   {
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     std::vector<int> pointIdxRadiusSearch;
@@ -763,7 +768,7 @@ icp parameters
     // with the most number of nearest neighbors
     // within a given radius of the searchPoint
     PointCloud::Ptr best_fit_cloud;
-    best_fit_transform = Eigen::Matrix4f::Identity();
+    best_fit_transf = Eigen::Matrix4f::Identity();
 
     // Compute the centroid of the moved_cloud
     Eigen::Vector4f centroid1 = compute_centroid(*moved_cloud);
@@ -811,7 +816,7 @@ icp parameters
       if (num_matches > max_neighbors) {
         max_neighbors = num_matches;
         best_fit_cloud = transformed_cloud;
-        best_fit_transform = transform2 * transform1;
+        best_fit_transf = transform2 * transform1;
       }
 
       num_matches = 0;
@@ -845,7 +850,7 @@ icp parameters
     }
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr best_transform_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
-    pcl::transformPointCloud (*moved_cloud, *best_transform_cloud,best_fit_transform);
+    pcl::transformPointCloud (*moved_cloud, *best_transform_cloud,best_fit_transf);
 
     pcl::visualization::PCLVisualizer viewer ("Matrix transformation example");
 
