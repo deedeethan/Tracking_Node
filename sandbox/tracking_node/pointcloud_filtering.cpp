@@ -108,6 +108,7 @@ modified from the command line.
   PointCloud::Ptr icp_cloud;
   Matrix initial_transform;
   Matrix icp_transform;
+  Matrix best_fit_transform;
   bool first_it;
   int num_its;
 
@@ -142,16 +143,6 @@ modified from the command line.
     return this->initial_guess;
   }
 
-  void set_initial_transform(Matrix transform)
-  {
-    this->initial_transform = transform;
-  }
-
-  Matrix get_initial_transform()
-  {
-    return this->initial_transform;
-  }
-
   void set_icp_cloud(PointCloud::Ptr cloud)
   {
     this->icp_cloud = cloud;
@@ -162,6 +153,16 @@ modified from the command line.
     return this->icp_cloud;
   }
 
+  void set_initial_transform(Matrix transform)
+  {
+    this->initial_transform = transform;
+  }
+
+  Matrix get_initial_transform()
+  {
+    return this->initial_transform;
+  }
+
   void set_icp_transform(Matrix transform)
   {
     this->icp_transform = transform;
@@ -170,6 +171,16 @@ modified from the command line.
   Matrix get_icp_transform()
   {
     return this->icp_transform;
+  }
+
+  void set_best_fit_transform(Matrix transform)
+  {
+    this->best_fit_transform = transform;
+  }
+
+  Matrix get_best_fit_transform()
+  {
+    return this->best_fit_transform;
   }
 
   // Filtering parameters
@@ -209,20 +220,21 @@ icp parameters
     nh_private_.param("outlier_threshold", r_outlier_thres, 0.05);
 */
 
-/*
-Parameters for a bounding box. Not currently in use.
-Apparently, you can't set these parameters on the param server
-because there is no predefined function that lets you do so
+    pcl::PointCloud<pcl::PointXYZ>::Ptr obj (new pcl::PointCloud<pcl::PointXYZ> ());
+    pcl::PointCloud<pcl::PointXYZ>::Ptr guess (new pcl::PointCloud<pcl::PointXYZ> ());
+    pcl::PointCloud<pcl::PointXYZ>::Ptr filtered (new pcl::PointCloud<pcl::PointXYZ> ());
+    pcl::PointCloud<pcl::PointXYZ>::Ptr icp (new pcl::PointCloud<pcl::PointXYZ> ());
+    Eigen::Matrix4f init_transform;
+    Eigen::Matrix4f icp_trans;
+    Eigen::Matrix4f bf_transform;
 
-    nh_private_.param("box_x_min", min_pt_[0], -0.1);
-    nh_private_.param("box_x_max", max_pt_[0], 0.1);
-    nh_private_.param("box_y_min", min_pt_[1], -0.1);
-    nh_private_.param("box_y_max", max_pt_[1], 0.1);
-    nh_private_.param("box_z_min", min_pt_[2], 0.5);
-    nh_private_.param("box_z_max", max_pt_[2], 0.6);
-    nh_private_.param("box_id_min", min_pt_[3], 1);
-    nh_private_.param("box_id_max", max_pt_[3], 1);
-*/
+    obj_model = obj;
+    initial_guess = guess;
+    cloud_filtered = filtered;
+    icp_cloud = icp;
+    initial_transform = init_transform;
+    icp_transform = icp_trans;
+    best_fit_transform = bf_transform;
 
     // Subscription to the point cloud result from stereo_image_proc
     point_cloud_sub_ = nh_.subscribe<PointCloud>(
@@ -282,7 +294,7 @@ because there is no predefined function that lets you do so
     // Time the filtering
     ros::Time begin = ros::Time::now();
     PointCloud cloud = *point_cloud;
-    PointCloud::Ptr cloud_filtered = filter(cloud.makeShared());
+    cloud_filtered = filter(cloud.makeShared());
     set_cloud_filtered(cloud_filtered);
     ros::Time next = ros::Time::now();
     // Save the filtered cloud to a pcd file for testing
@@ -291,14 +303,12 @@ because there is no predefined function that lets you do so
     if(first_it)
     {
       // Set obj_model cloud
-      PointCloud::Ptr obj_model (new PointCloud);
       pcl::io::loadPCDFile ("big_triangle.pcd", *obj_model);
       set_obj_model(obj_model);
 
       // Rotate the filtered cloud 180 degrees to the right (clockwise)
       // to match orientation of obj_model cloud
       // Translate the filtered cloud to approximately the correct position
-      Matrix initial_transform = Matrix::Identity();
       initial_transform (0,0) = cos (theta_);
       initial_transform (0,1) = -sin(theta_);
       initial_transform (1,0) = sin (theta_);
@@ -307,12 +317,11 @@ because there is no predefined function that lets you do so
       initial_transform (1,3) = 0.15;
       initial_transform (2,3) = 0.62;
 
-      PointCloud::Ptr initial_guess (new PointCloud);
       // Transfom the obj model to get an initial guess
       pcl::transformPointCloud(*obj_model, *initial_guess,
                                initial_transform);
       // Run icp and get the final transformation
-      Matrix icp_transform =
+      icp_transform =
              iterative_closest_point(initial_guess, cloud_filtered,
                                      0.1, 100, 0.0001, 0.05, 100);
       cout << "ICP transformation - " << endl;
@@ -320,7 +329,6 @@ because there is no predefined function that lets you do so
 
       // Transform the initial_guess to get the icp_cloud
       // This is icp's guess of the transformation
-      PointCloud::Ptr icp_cloud (new PointCloud);
       pcl::transformPointCloud(*initial_guess, *icp_cloud, icp_transform);
 
       set_initial_transform(initial_transform);
@@ -339,19 +347,21 @@ because there is no predefined function that lets you do so
    object in the world. Send back the initial guess  */
       // Previous icp_transform becomes new initial_transform matrix
       // Previous icp_cloud becomes new initial_guess
-      Matrix initial_transform = get_icp_transform();
-      PointCloud::Ptr initial_guess = get_icp_cloud();
+      initial_transform = get_icp_transform();
+      initial_guess = get_icp_cloud();
 
       // Check if previous icp_transform was the identity matrix.
       // If so, relax icp parameters because icp could not find a
       // good match (translation and/or rotation was too large).
       if (equal(Matrix::Identity(), icp_transform)) {
-        Matrix kd_transform = compute_guess(icp_cloud,
-                                            cloud_filtered, 0.03);
+        compute_guess(icp_cloud, cloud_filtered, 0.03, best_fit_transform);
+        cout << "kd_transform matrix" << endl;
+        print_matrix(best_fit_transform);
         PointCloud::Ptr kd_cloud (new PointCloud);
         pcl::transformPointCloud(*cloud_filtered, *kd_cloud,
-                                 kd_transform);
+                                 best_fit_transform);
         set_initial_guess(kd_cloud);
+        set_icp_transform(best_fit_transform);
 //        icp_transform = iterative_closest_point(initial_guess,
 //                                                cloud_filtered,
 //                                                0.01, 150, 0.0001, 0.005,
@@ -361,16 +371,15 @@ because there is no predefined function that lets you do so
       }
 
       // Run icp with original parameters and get the final transformation
-  //    else {
+      else {
         icp_transform = iterative_closest_point(initial_guess,
                                                 cloud_filtered,
                                                 0.01, 150, 0.0001, 0.005,
                                                 150);
-  //    }
+      }
       cout << "ICP transformation - " << endl;
       cout << icp_transform << endl << endl;
 
-      PointCloud::Ptr icp_cloud (new PointCloud);
       pcl::transformPointCloud(*initial_guess, *icp_cloud, icp_transform);
 
       set_initial_guess(initial_guess);
@@ -384,8 +393,8 @@ because there is no predefined function that lets you do so
       ros::Duration icpTime = final - next;
       ROS_INFO("Filtering took: %f secs", (double) filterTime.toSec());
       ROS_INFO("ICP took: %f secs", (double) icpTime.toSec());
-      saveInfo("filter_time.cpp", filterTime.toSec());
-      saveInfo("icp_time.cpp", icpTime.toSec());
+      save_info("filter_time.cpp", filterTime.toSec());
+      save_info("icp_time.cpp", icpTime.toSec());
 
       geometry_msgs::Pose pose = convert_matrix_to_pose(icp_transform);
 
@@ -638,7 +647,7 @@ because there is no predefined function that lets you do so
 
     std::cout << "has converged:" << icp.hasConverged() << " score: " <<
     icp.getFitnessScore() << std::endl;
-    saveInfo("fitness_score.cpp", icp.getFitnessScore());
+    save_info("fitness_score.cpp", icp.getFitnessScore());
 
   /*  regVis.stopDisplay();
     std::string help;
@@ -666,6 +675,19 @@ because there is no predefined function that lets you do so
       }
     }
     return true;
+  }
+
+  void print_matrix (Matrix input)
+  {
+    for (int i = 0; i < 4; i++)
+    {
+      for (int j = 0; j < 4; j++)
+      {
+        cout << input(i,j) << " ";
+      }
+      cout << endl;
+    }
+    return;
   }
 
   // Given a point cloud, compute_centroid will find the centroid
@@ -724,8 +746,9 @@ because there is no predefined function that lets you do so
   // at the same time. Icp has difficulty finding a good match
   // after a transformation of this type, so we need to seed icp
   // with a better initial_guess.
-  Matrix compute_guess(PointCloud::Ptr source_cloud,
-                       PointCloud::Ptr moved_cloud, float radius)
+  void compute_guess(PointCloud::Ptr source_cloud,
+                     PointCloud::Ptr moved_cloud, float radius,
+                     Matrix best_fit_transform)
   {
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     std::vector<int> pointIdxRadiusSearch;
@@ -740,7 +763,7 @@ because there is no predefined function that lets you do so
     // with the most number of nearest neighbors
     // within a given radius of the searchPoint
     PointCloud::Ptr best_fit_cloud;
-    Matrix best_fit_transform = Eigen::Matrix4f::Identity();
+    best_fit_transform = Eigen::Matrix4f::Identity();
 
     // Compute the centroid of the moved_cloud
     Eigen::Vector4f centroid1 = compute_centroid(*moved_cloud);
@@ -768,7 +791,7 @@ because there is no predefined function that lets you do so
       transform2 (1,3) = (distance_y);
       transform2 (2,3) = (distance_z);
       pcl::transformPointCloud(*rotated_cloud, *transformed_cloud,
-                                transform2);
+                               transform2);
 
       kdtree.setInputCloud(transformed_cloud);
 
@@ -830,7 +853,7 @@ because there is no predefined function that lets you do so
     viewer.addPointCloud (best_transform_cloud,          best_transform_cloud_color_handler, "best_transform_cloud");
 
     pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> best_fit_cloud_color_handler (best_fit_cloud, 20, 245, 20); // green
-    viewer.addPointCloud (best_transform_cloud, best_fit_cloud_color_handler, "best_fit_cloud");
+    viewer.addPointCloud (best_fit_cloud, best_fit_cloud_color_handler, "best_fit_cloud");
 
     pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> source_cloud_color_handler (source_cloud, 255, 255, 255); // white
     viewer.addPointCloud (source_cloud, source_cloud_color_handler, "source_cloud");
@@ -845,14 +868,14 @@ because there is no predefined function that lets you do so
       viewer.spinOnce ();
     }
 
-    return best_fit_transform;
+    return;
   }
 
 
   // Saves the data from filtering time, icp time, and fitness score
   // into separate files
   // Used to graph data vs iteration number to look for trends
-  void saveInfo(const std::string &file_name, double data)
+  void save_info(const std::string &file_name, double data)
   {
     std::ofstream fs;
     fs.open(file_name.c_str(), fstream::app | fstream::out);
@@ -994,6 +1017,15 @@ int main(int argc, char **argv)
 {
   ros::init(argc, argv, "point_cloud_filtering");
   PointCloudFiltering node;
+  /*
+  pcl::PointCloud<pcl::PointXYZ>::Ptr obj_model (new pcl::PointCloud<pcl::PointXYZ> ());
+  pcl::PointCloud<pcl::PointXYZ>::Ptr initial_guess (new pcl::PointCloud<pcl::PointXYZ> ());
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZ> ());
+  pcl::PointCloud<pcl::PointXYZ>::Ptr icp_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
+  Eigen::Matrix4f initial_transform;
+  Eigen::Matrix4f icp_transform;
+  Eigen::Matrix4f best_fit_transform;
+*/
 
 /* as long as there is no message that says stop, keep spinning */
   ros::spin();
