@@ -112,8 +112,6 @@ modified from the command line.
   int num_its;
 
 // Get and set functions for global variables
-public:
-
   void set_obj_model(PointCloud::Ptr cloud)
   {
     this->obj_model = cloud;
