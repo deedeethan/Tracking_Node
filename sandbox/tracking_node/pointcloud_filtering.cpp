@@ -220,7 +220,7 @@ icp parameters
     Eigen::Matrix4f icp_trans;
     fill_matrix(icp_trans, 0);
     Eigen::Matrix4f bf_transform;
-    fill_matrix(bf_transform, 0);
+    fill_matrix(bf_transform, 1);
 
     obj_model = obj;
     initial_guess = guess;
