@@ -212,8 +212,6 @@ public :
     nh_private_.param("outlier_threshold", r_outlier_thres, 0.05);
 #endif
 
-    pcl::PointCloud<pcl::PointXYZ>::Ptr obj
-      (new pcl::PointCloud<pcl::PointXYZ> ());
     pcl::PointCloud<pcl::PointXYZ>::Ptr guess
       (new pcl::PointCloud<pcl::PointXYZ> ());
     pcl::PointCloud<pcl::PointXYZ>::Ptr filtered
@@ -221,13 +219,9 @@ public :
     pcl::PointCloud<pcl::PointXYZ>::Ptr icp
       (new pcl::PointCloud<pcl::PointXYZ> ());
     Eigen::Matrix4f init_transform;
-//    fill_matrix(init_transform, 0);
     Eigen::Matrix4f icp_trans;
-//    fill_matrix(icp_trans, 0);
     Eigen::Matrix4f bf_transform;
-//    fill_matrix(bf_transform, 0);
 
-    obj_model = obj;
     initial_guess = guess;
     cloud_filtered = filtered;
     icp_cloud = icp;
@@ -301,6 +295,7 @@ public :
     if (first_it)
     {
       // Set obj_model cloud
+      PointCloud::Ptr obj_model (new PointCloud);
       pcl::io::loadPCDFile ("big_triangle.pcd", *obj_model);
       set_obj_model(obj_model);
 
@@ -394,7 +389,7 @@ public :
       geometry_msgs::Pose pose = convert_matrix_to_pose(icp_transform);
 
 // Visualize every 10 iterations of icp
-//    if (num_its % 10 == 0) {
+    if (num_its % 5 == 0) {
 
 /*
        if (num_its == 5) {
@@ -449,8 +444,8 @@ public :
       viewer.setPointCloudRenderingProperties
         (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "icp_cloud");
 
-      viewer.spinOnce (4500);
-//    }
+      viewer.spinOnce (3500);
+    }
 
     // Increment the counter for the number of iterations
     // so I can visualize the clouds every 5 iterations of icp
