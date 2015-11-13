@@ -216,11 +216,11 @@ icp parameters
     pcl::PointCloud<pcl::PointXYZ>::Ptr filtered (new pcl::PointCloud<pcl::PointXYZ> ());
     pcl::PointCloud<pcl::PointXYZ>::Ptr icp (new pcl::PointCloud<pcl::PointXYZ> ());
     Eigen::Matrix4f init_transform;
-    fill_matrix(init_transform, 0);
+//    fill_matrix(init_transform, 0);
     Eigen::Matrix4f icp_trans;
-    fill_matrix(icp_trans, 0);
+//    fill_matrix(icp_trans, 0);
     Eigen::Matrix4f bf_transform;
-    fill_matrix(bf_transform, 1);
+//    fill_matrix(bf_transform, 0);
 
     obj_model = obj;
     initial_guess = guess;
@@ -394,22 +394,6 @@ icp parameters
 // Visualize every 10 iterations of icp
 //    if (num_its % 10 == 0) {
 
-/*  Testing the convertMatrixToQuat function
-
-      Eigen::Matrix3d test_m = Eigen::Matrix3d::Identity();
-      Eigen::Quaternionf quat = Eigen::Quaternionf(1.0, 0.0, 0.0, 0.0);
-      test_m(0,0) = 0.999752;
-      test_m(0,1) = 0.0145776;
-      test_m(0,2) = -0.016892;
-      test_m(1,0) = -0.0152866;
-      test_m(1,1) = 0.998974;
-      test_m(1,2) = -0.0426446;
-      test_m(2,0) = 0.012533;
-      test_m(2,1) = 0.0428917;
-      test_m(2,2) = 0.998946;
-      quat = convertMatrixToQuat(test_m);
-*/
-
 /*
        if (num_its == 5) {
          publish the message "ready to start tracking"
@@ -475,7 +459,6 @@ icp parameters
 
     /* Save the filtered point cloud to a pcd file
        Don't want to do this usually - too slow
-
     pcl::io::savePCDFileASCII("filtered.pcd", *cloud_filtered);
     pcl::io::savePCDFileASCII("initial_guess.pcd", *initial_guess);
     pcl::io::savePCDFileASCII("icp_transform.pcd", *icp_cloud);
