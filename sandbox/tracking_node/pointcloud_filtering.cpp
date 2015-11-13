@@ -1,29 +1,31 @@
 /*
-
-This is all the main code for the tracking node.
-
-The first section is declaring a class for the publisher, subscriber,
-and callback. Defines the Point and PointCloud types for convenience.
-Declares global variables and get and set functions
-for filtering and callback.
-
-The next section sets starting, default values for filtering parameters.
-These parameters can be set from the command line when running this node.
-(The default parameters right now work for the current testing setup
-in lab. This consists of the Kinect propped up on a textbook, facing
-the desktop. The big_triangle block is usually placed horizontally
-on the wood board on top of the sticker.)
-Declares the subscriber and publisher.
-Publisher publishes messages of the type geometry_msgs::Pose, which
-consists of a Point corresponding to an xyz position vector and
-a quaternion corresponding to a 3x3 rotation matrix.
-
-The third section is the main callback function for the node. This
-function filters the incoming data for the object, transforms the
-resulting cloud, and runs icp on the filtered cloud and an initial_guess
-cloud.
-
-*/
+ * pointcloud_filtering.cpp
+ *
+ * DeeDee Han
+ *
+ * This is all the main code for the tracking node.
+ *
+ * The first section is declaring a class for the publisher, subscriber,
+ * and callback. Defines the Point and PointCloud types for convenience.
+ * Declares global variables and get and set functions
+ * for filtering and callback.
+ *
+ * The next section sets starting, default values for filtering parameters.
+ * These parameters can be set from the command line when running this node.
+ * (The default parameters right now work for the current testing setup
+ * in lab. This consists of the Kinect propped up on a textbook, facing
+ * the desktop. The big_triangle block is usually placed horizontally
+ * on the wood board on top of the sticker.)
+ * Declares the subscriber and publisher.
+ * Publisher publishes messages of the type geometry_msgs::Pose, which
+ * consists of a Point corresponding to an xyz position vector and
+ * a quaternion corresponding to a 3x3 rotation matrix.
+ *
+ * The third section is the main callback function for the node. This
+ * function filters the incoming data for the object, transforms the
+ * resulting cloud, and runs icp on the filtered cloud and an initial_guess
+ * cloud.
+ */
 
 #include <iostream>
 #include <math.h>
@@ -51,6 +53,8 @@ cloud.
 #include <Eigen/Geometry>
 #include <Eigen/Core>
 #include "tf/transform_datatypes.h"
+
+#define ICP_PARAMSx
 
 typedef pcl::PointXYZ      Point;
 typedef pcl::PointCloud<Point> PointCloud;
@@ -81,16 +85,15 @@ public :
   bool apply_outlier_removal_;
   double theta_;
 
-/*
-These are the paramters for icp. This is if I want them to be
-modified from the command line.
+  // These are the paramters for icp. This is if I want them to be
+  // modified from the command line.
+#ifdef ICP_PARAMS
   int max_it;
   int r_max_it;
   double max_corres_dist;
   double transf_epsilon;
   double r_outlier_thres;
-*/
-
+#endif
 
   // Global variables
   PointCloud::Ptr obj_model;
@@ -103,7 +106,7 @@ modified from the command line.
   bool first_it;
   int num_its;
 
-// Get and set functions for global variables
+  // Get and set functions for global variables
   void set_obj_model(PointCloud::Ptr cloud)
   {
     this->obj_model = cloud;
@@ -201,20 +204,22 @@ modified from the command line.
     nh_private_.param("first_iteration", first_it, true);
     nh_private_.param("num_iterations", num_its, 0);
 
-/*
-icp parameters
-
+#ifdef ICP_PARAMS
     nh_private_.param("max_it", max_it, 200);
     nh_private_.param("RANSAC_it", r_max_it, 200);
     nh_private_.param("max_corres_dist", max_corres_dist, 0.01);
     nh_private_.param("transform_epsilon", transf_epsilon, 0.0001);
     nh_private_.param("outlier_threshold", r_outlier_thres, 0.05);
-*/
+#endif
 
-    pcl::PointCloud<pcl::PointXYZ>::Ptr obj (new pcl::PointCloud<pcl::PointXYZ> ());
-    pcl::PointCloud<pcl::PointXYZ>::Ptr guess (new pcl::PointCloud<pcl::PointXYZ> ());
-    pcl::PointCloud<pcl::PointXYZ>::Ptr filtered (new pcl::PointCloud<pcl::PointXYZ> ());
-    pcl::PointCloud<pcl::PointXYZ>::Ptr icp (new pcl::PointCloud<pcl::PointXYZ> ());
+    pcl::PointCloud<pcl::PointXYZ>::Ptr obj
+      (new pcl::PointCloud<pcl::PointXYZ> ());
+    pcl::PointCloud<pcl::PointXYZ>::Ptr guess
+      (new pcl::PointCloud<pcl::PointXYZ> ());
+    pcl::PointCloud<pcl::PointXYZ>::Ptr filtered
+      (new pcl::PointCloud<pcl::PointXYZ> ());
+    pcl::PointCloud<pcl::PointXYZ>::Ptr icp
+      (new pcl::PointCloud<pcl::PointXYZ> ());
     Eigen::Matrix4f init_transform;
 //    fill_matrix(init_transform, 0);
     Eigen::Matrix4f icp_trans;
@@ -243,45 +248,44 @@ icp parameters
   }
 
   /* Callback function for incoming point cloud data from the Kinect
-
-     First, filters the incoming data to isolate the object.
-     Downsamples the filtered cloud to decrease the number of points
-     icp must search through. Removes statistical outliers.
-
-     On the first iteration of the function, the object model is
-     used as an initial_guess for icp. Icp compares the object_model
-     with the filtered cloud and outputs its best guess
-     for a transformation. Usually takes 3-5 iterations for icp
-     to output a correct match for the initial position.
-
-     On each successive iteration, run icp with strict or loose
-     parameters based on the transformation matrix of the previous
-     iteration. If icp failed to find a match and returned the
-     identity matrix, then relax the icp parameters for one iteration.
-     (This works for large translations with no rotation).
-     Otherwise, run icp with regular strict parameters.
-     Right now, if a transformation involves both a rotation and a
-     translation, icp cannot find a good match even with loose parameters.
-     (Ideally, in this case, this function would then do a nearest neighbor
-     search with kdtree and get an initial_guess with a closer
-     orientation and xyz position to feed into icp.
-     This would take a bit more time, but would make the algorithm
-     more robust. Need to do more data analysis after I finish
-     writing the code to see how much more time it takes.
-     Right now, still working on writing it.
-     Refer to the matrix_transform.cpp file for code).
-
-     Refer to the file on Google Drive for data analysis of the
-     current code. Includes several different transformations
-     with corresponding filter time, icp time, and fitness scores.
-
-     Display the relevant clouds using the PCLVisualizer.
-     Convert the icp_transform to the geometry_msgs::Pose type,
-     which consists of a Point for the xyz position
-     and a Quaternion for the 3x3 rotation matrix.
-     Publish the message to the topic.
-
-  */
+   *
+   * First, filters the incoming data to isolate the object.
+   * Downsamples the filtered cloud to decrease the number of points
+   * icp must search through. Removes statistical outliers.
+   *
+   * On the first iteration of the function, the object model is
+   * used as an initial_guess for icp. Icp compares the object_model
+   * with the filtered cloud and outputs its best guess
+   * for a transformation. Usually takes 3-5 iterations for icp
+   * to output a correct match for the initial position.
+   *
+   * On each successive iteration, run icp with strict or loose
+   * parameters based on the transformation matrix of the previous
+   * iteration. If icp failed to find a match and returned the
+   * identity matrix, then relax the icp parameters for one iteration.
+   * (This works for large translations with no rotation).
+   * Otherwise, run icp with regular strict parameters.
+   * Right now, if a transformation involves both a rotation and a
+   * translation, icp cannot find a good match even with loose parameters.
+   * (Ideally, in this case, this function would then do a nearest neighbor
+   * search with kdtree and get an initial_guess with a closer
+   * orientation and xyz position to feed into icp.
+   * This would take a bit more time, but would make the algorithm
+   * more robust. Need to do more data analysis after I finish
+   * writing the code to see how much more time it takes.
+   * Right now, still working on writing it.
+   * Refer to the matrix_transform.cpp file for code).
+   *
+   * Refer to the file on Google Drive for data analysis of the
+   * current code. Includes several different transformations
+   * with corresponding filter time, icp time, and fitness scores.
+   *
+   * Display the relevant clouds using the PCLVisualizer.
+   * Convert the icp_transform to the geometry_msgs::Pose type,
+   * which consists of a Point for the xyz position
+   * and a Quaternion for the 3x3 rotation matrix.
+   * Publish the message to the topic.
+   */
   void point_cloud_cb(const PointCloud::ConstPtr& point_cloud)
   {
     // Filter with downsampling and outlier removal
@@ -312,11 +316,12 @@ icp parameters
       initial_transform (2,3) = 0.62;
 
       // Transfom the obj model to get an initial guess
+      PointCloud::Ptr initial_guess (new PointCloud);
       pcl::transformPointCloud(*obj_model, *initial_guess,
                                initial_transform);
       // Run icp and get the final transformation
-      iterative_closest_point(initial_guess, cloud_filtered,
-                              0.1, 100, 0.0001, 0.05, 100, icp_transform);
+      icp_transform = iterative_closest_point(initial_guess,
+                             cloud_filtered, 0.1, 100, 0.0001, 0.05, 100);
       cout << "ICP transformation - " << endl;
       cout << icp_transform << endl;
 
@@ -347,7 +352,8 @@ icp parameters
       // If so, relax icp parameters because icp could not find a
       // good match (translation and/or rotation was too large).
       if (equal(Matrix::Identity(), icp_transform)) {
-        compute_guess(icp_cloud, cloud_filtered, 0.03, best_fit_transform);
+        best_fit_transform = compute_guess(icp_cloud,
+                                                  cloud_filtered, 0.03);
         cout << "kd_transform matrix" << endl;
         print_matrix(best_fit_transform);
         PointCloud::Ptr kd_cloud (new PointCloud);
@@ -355,20 +361,16 @@ icp parameters
                                  best_fit_transform);
         set_initial_guess(kd_cloud);
         set_icp_transform(best_fit_transform);
-//        icp_transform = iterative_closest_point(initial_guess,
-//                                                cloud_filtered,
-//                                                0.01, 150, 0.0001, 0.005,
-//                                                150) * kd_transform;
 
         ROS_INFO("icp run with kdtree_search");
       }
 
       // Run icp with original parameters and get the final transformation
 //      else {
-          iterative_closest_point(initial_guess,
+        icp_transform = iterative_closest_point(initial_guess,
                                                 cloud_filtered,
                                                 0.01, 150, 0.0001, 0.005,
-                                                150, icp_transform);
+                                                150);
 //      }
       cout << "ICP transformation - " << endl;
       cout << icp_transform << endl << endl;
@@ -466,37 +468,23 @@ icp parameters
     }
   }
 
-  // Helper function to filter a given point cloud
-  // If the private parameter apply_xyz_limits is set to true,
-  // then the given cloud is filtered based on the xyz_limits given.
-  // If the parameter apply_voxel_grid is set to true,
-  // then the cloud is downsampled with a given voxel_size.
-  // If the parameter apply_outlier_removal is set to true,
-  // then the cloud has statistical outliers removed.
-  // Returns the filtered cloud.
-  //
-  // To increase the speed of icp, increase the voxel_size
-  // so the filtered cloud has fewer points.
+  /* Helper function to filter a given point cloud
+   * If the private parameter apply_xyz_limits is set to true,
+   * then the given cloud is filtered based on the xyz_limits given.
+   * If the parameter apply_voxel_grid is set to true,
+   * then the cloud is downsampled with a given voxel_size.
+   * If the parameter apply_outlier_removal is set to true,
+   * then the cloud has statistical outliers removed.
+   * Returns the filtered cloud.
+   *
+   * To increase the speed of icp, increase the voxel_size
+   * so the filtered cloud has fewer points.
+   */
   PointCloud::Ptr filter(PointCloud::Ptr cloud)
   {
     // NAN and limit filtering
     PointCloud::Ptr cloud_filtered_ptr(new PointCloud);
     pcl::PassThrough<Point> pass;
-/*
-    These values should be between the xyz min and max values
-    for filtering points outside of object
-    These bounds are for bounding boxes to remove the
-    fingers of the robot's hand around the object, for example
-
-    min_pt_[0] = 0.1;
-    min_pt_[1] = 0.1;
-    min_pt_[2] = 0.1;
-    min_pt_[3] = 1;
-    max_pt_[0] = 0.11;
-    max_pt_[1] = 0.11;
-    max_pt_[2] = 0.11;
-    max_pt_[3] = 1;
-*/
 
     if (apply_xyz_limits_)
     {
@@ -505,27 +493,18 @@ icp parameters
       pass.setFilterLimits(x_filter_min_, x_filter_max_);
       pass.setInputCloud(cloud);
       pass.filter(*cloud_filtered_ptr);
-//      pass.setFilterLimits(min_pt_[0], max_pt_[0]);
-//      pass.setInputCloud(cloud);
-//      pass.filter(*cloud_filtered_ptr);
 
       // Y-filtering
       pass.setFilterFieldName("y");
       pass.setFilterLimits(y_filter_min_, y_filter_max_);
       pass.setInputCloud(cloud_filtered_ptr);
       pass.filter(*cloud_filtered_ptr);
-//      pass.setFilterLimits(min_pt_[1], max_pt_[1]);
-//      pass.setInputCloud(cloud);
-//      pass.filter(*cloud_filtered_ptr);
 
       // Z-filtering
       pass.setFilterFieldName("z");
       pass.setFilterLimits(z_filter_min_, z_filter_max_);
       pass.setInputCloud(cloud_filtered_ptr);
       pass.filter(*cloud_filtered_ptr);
-//     pass.setFilterLimits(min_pt_[2], max_pt_[2]);
-//     pass.setInputCloud(cloud);
-//     pass.filter(*cloud_filtered_ptr);
     }
     else
     {
@@ -570,31 +549,32 @@ icp parameters
   }
 
 
-  // Helper function to run icp on two input clouds
-  // Parameters include:
-  //   Max correspondence distance between two points
-  //   Max number of iterations of icp
-  //   Transformation epsilon
-  //     (the difference between the previous transformation
-  //      and the current estimated transformation is smaller
-  //      than a user imposed value)
-  //   RANSAC outlier threshold
-  //   RANSAC max number of iterations
-  //     (RANSAC is a randomized algorithm that tries to find
-  //      the most number of matching points)
-  //
-  // Takes in two different point clouds and returns the transformation
-  // to get from one to the other
-  //
-  // To speed up icp, decrease the number of iterations and
-  // increase the transformation epsilon.
-  void iterative_closest_point(PointCloud::Ptr cloud_in,
+  /* Helper function to run icp on two input clouds
+   * Parameters include:
+   *   Max correspondence distance between two points
+   *   Max number of iterations of icp
+   *   Transformation epsilon
+   *     (the difference between the previous transformation
+   *      and the current estimated transformation is smaller
+   *      than a user imposed value)
+   *   RANSAC outlier threshold
+   *   RANSAC max number of iterations
+   *     (RANSAC is a randomized algorithm that tries to find
+   *      the most number of matching points)
+   *
+   * Takes in two different point clouds and returns the transformation
+   * to get from one to the other
+   *
+   * To speed up icp, decrease the number of iterations and
+   * increase the transformation epsilon.
+   */
+  Matrix iterative_closest_point(PointCloud::Ptr cloud_in,
                                  PointCloud::Ptr cloud_out,
                                  double max_corres_dist,
                                  int max_it,
                                  double transf_epsilon,
                                  double r_outlier_thres,
-                                 int r_max_it, Matrix icp_transf)
+                                 int r_max_it)
   {
     pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
     icp.setInputCloud(cloud_in);
@@ -610,14 +590,6 @@ icp parameters
     icp.setRANSACOutlierRejectionThreshold (r_outlier_thres);
     icp.setRANSACIterations (r_max_it);
 
-// icp comes with a visualizer. However, I was unable
-// to get it to work. Didn't compile for some reason.
-/*    pcl::RegistrationVisualizer<pcl::PointXYZ, pcl::PointXYZ> regVis;
-    regVis.setRegistration(icp);
-    regVis.setMaximumDisplayedCorrespondences(100);
-    regVis.startDisplay();
-*/
-
     PointCloud::Ptr Final (new PointCloud);
     icp.align(*Final);
 
@@ -625,21 +597,14 @@ icp parameters
     icp.getFitnessScore() << std::endl;
     save_info("fitness_score.cpp", icp.getFitnessScore());
 
-  /*  regVis.stopDisplay();
-    std::string help;
-    std::cout << "Type any character and press enter to quit"
-    << std::endl;
-    std::cin >> help;
-  */
-    icp_transf = icp.getFinalTransformation();
-    // Return
-    return;
+    return icp.getFinalTransformation();
   }
 
-  // Returns true if two arrays are element-wise equal
-  // Used to determine if one matrix is equivalent to another matrix,
-  // in which case you relax the icp parameters because it does not
-  // find enough correspondences
+  /* Returns true if two arrays are element-wise equal
+   * Used to determine if one matrix is equivalent to another matrix,
+   * in which case you relax the icp parameters because it does not
+   * find enough correspondences
+   */
   bool equal (Matrix input, Matrix output)
   {
     for (int i = 0; i < 4; ++i)
@@ -721,22 +686,22 @@ icp parameters
   }
 
 
-  // Given icp's previous guess and the new filtered input cloud,
-  // compute_guess finds the distance between the two centroids
-  // of the clouds and does a kd-tree nearest neighbor search
-  // to find the next initial_guess.
-  // The new initial_guess is thus icp's previous guess
-  // translated to a new position based on the distance between
-  // the centroids, and rotated based on the orientation of the cloud
-  // that has the most neighbors with the filtered input cloud.
-  //
-  // This is used when the object is rotated and translated
-  // at the same time. Icp has difficulty finding a good match
-  // after a transformation of this type, so we need to seed icp
-  // with a better initial_guess.
-  void compute_guess(PointCloud::Ptr source_cloud,
-                     PointCloud::Ptr moved_cloud, float radius,
-                     Matrix best_fit_transf)
+  /* Given icp's previous guess and the new filtered input cloud,
+   * compute_guess finds the distance between the two centroids
+   * of the clouds and does a kd-tree nearest neighbor search
+   * to find the next initial_guess.
+   * The new initial_guess is thus icp's previous guess
+   * translated to a new position based on the distance between
+   * the centroids, and rotated based on the orientation of the cloud
+   * that has the most neighbors with the filtered input cloud.
+   *
+   * This is used when the object is rotated and translated
+   * at the same time. Icp has difficulty finding a good match
+   * after a transformation of this type, so we need to seed icp
+   * with a better initial_guess.
+   */
+  Matrix compute_guess(PointCloud::Ptr source_cloud,
+                     PointCloud::Ptr moved_cloud, float radius)
   {
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     std::vector<int> pointIdxRadiusSearch;
@@ -751,7 +716,7 @@ icp parameters
     // with the most number of nearest neighbors
     // within a given radius of the searchPoint
     PointCloud::Ptr best_fit_cloud;
-    best_fit_transf = Eigen::Matrix4f::Identity();
+    Matrix best_fit_transf = Eigen::Matrix4f::Identity();
 
     // Compute the centroid of the moved_cloud
     Eigen::Vector4f centroid1 = compute_centroid(*moved_cloud);
@@ -856,13 +821,14 @@ icp parameters
       viewer.spinOnce ();
     }
 
-    return;
+    return best_fit_transf;
   }
 
 
-  // Saves the data from filtering time, icp time, and fitness score
-  // into separate files
-  // Used to graph data vs iteration number to look for trends
+  /* Saves the data from filtering time, icp time, and fitness score
+   * into separate files
+   * Used to graph data vs iteration number to look for trends
+   */
   void save_info(const std::string &file_name, double data)
   {
     std::ofstream fs;
@@ -871,11 +837,12 @@ icp parameters
     fs.close();
   }
 
-  // Converts a 3x3 rotation matrix into a quaternion of the form
-  // w + xi + yj + zk
-  // Used to publish the position and orientation of the icp_transform
-  // as a geometry_msgs::Pose object, which consists of a Point
-  // and a Quaternion
+  /* Converts a 3x3 rotation matrix into a quaternion of the form
+   * w + xi + yj + zk
+   * Used to publish the position and orientation of the icp_transform
+   * as a geometry_msgs::Pose object, which consists of a Point
+   * and a Quaternion
+   */
   Eigen::Quaternionf convert_matrix_to_quat(Eigen::Matrix3d rotation)
   {
     // Identity quaternion
@@ -949,21 +916,16 @@ icp parameters
 
     quat = Eigen::Quaternionf(q0, q1, q2, q3);
 
-/* Print out the values of the quaternion. For testing
-
-    cout << q0 << ", " << q1 << ", " << q2 << ", "
-    << q3 << endl;
-*/
-
     return quat;
   }
 
 
-  // Convert the 4x4 transformation matrix to a quaternion
-  // and a position vector, a point.
-  // This is so the transformation can be published as a
-  // geometry_msgs::Pose object, which consists of a Point
-  // and a Quaternion that represents the 3x3 rotation matrix
+  /* Convert the 4x4 transformation matrix to a quaternion
+   * and a position vector, a point.
+   * This is so the transformation can be published as a
+   * geometry_msgs::Pose object, which consists of a Point
+   * and a Quaternion that represents the 3x3 rotation matrix
+   */
   geometry_msgs::Pose convert_matrix_to_pose(Matrix icp_transform)
   {
     // Create a 3x3 rotation matrix
@@ -973,7 +935,7 @@ icp parameters
     	for (int j = 0; j < 3; j++)
     	{
     	  orient_matrix(i,j) = icp_transform(i,j);
-     }
+      }
     }
 
     // Create an identity quaternion and convert the 3x3 rotation
@@ -997,7 +959,6 @@ icp parameters
 
     return pose;
   }
-
 };
 
 
@@ -1005,16 +966,6 @@ int main(int argc, char **argv)
 {
   ros::init(argc, argv, "point_cloud_filtering");
   PointCloudFiltering node;
-  /*
-  pcl::PointCloud<pcl::PointXYZ>::Ptr obj_model (new pcl::PointCloud<pcl::PointXYZ> ());
-  pcl::PointCloud<pcl::PointXYZ>::Ptr initial_guess (new pcl::PointCloud<pcl::PointXYZ> ());
-  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZ> ());
-  pcl::PointCloud<pcl::PointXYZ>::Ptr icp_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
-  Eigen::Matrix4f initial_transform;
-  Eigen::Matrix4f icp_transform;
-  Eigen::Matrix4f best_fit_transform;
-*/
-
 /* as long as there is no message that says stop, keep spinning */
   ros::spin();
   return 0;
