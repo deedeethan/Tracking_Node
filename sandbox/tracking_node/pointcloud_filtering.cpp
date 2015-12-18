@@ -85,7 +85,7 @@ public :
   bool apply_outlier_removal_;
   double theta_;
 
-  // These are the paramters for icp. This is if I want them to be
+  // These are the parameters for icp. This is if I want them to be
   // modified from the command line.
 #ifdef ICP_PARAMS
   int max_it;
@@ -96,6 +96,15 @@ public :
 #endif
 
   // Global variables
+  /* These include
+   *   a PointCloud::Ptr for the object model cloud
+   *   a PointCloud::Ptr for an initial guess cloud
+   *   a PointCloud::Ptr for the filtered cloud of incoming data
+   *   a PointCloud::Ptr for a cloud with the icp transform applied
+   *   a 4x4 matrix to transform the incoming data to the correct pose
+   *   a 4x4 matrix representing icp's guess of the best homogeneous transform
+   *   a 4x4 matrix representing kd_tree's guess of the best transform
+   */
   PointCloud::Ptr obj_model;
   PointCloud::Ptr initial_guess;
   PointCloud::Ptr cloud_filtered;
@@ -200,6 +209,7 @@ public :
     nh_private_.param("std_dev_thresh", std_dev_thresh_, 1.0);
 
     // Angle value used for transforming the point cloud manually
+    // Used for testing
     nh_private_.param("theta", theta_, -M_PI);
     nh_private_.param("first_iteration", first_it, true);
     nh_private_.param("num_iterations", num_its, 0);
@@ -212,6 +222,7 @@ public :
     nh_private_.param("outlier_threshold", r_outlier_thres, 0.05);
 #endif
 
+    // Initialize and set global variables
     pcl::PointCloud<pcl::PointXYZ>::Ptr guess
       (new pcl::PointCloud<pcl::PointXYZ> ());
     pcl::PointCloud<pcl::PointXYZ>::Ptr filtered
@@ -243,7 +254,7 @@ public :
 
   /* Callback function for incoming point cloud data from the Kinect
    *
-   * First, filters the incoming data to isolate the object.
+   * First, filters the incoming data to isolate the target object.
    * Downsamples the filtered cloud to decrease the number of points
    * icp must search through. Removes statistical outliers.
    *
@@ -258,6 +269,9 @@ public :
    * iteration. If icp failed to find a match and returned the
    * identity matrix, then relax the icp parameters for one iteration.
    * (This works for large translations with no rotation).
+   *
+   * ADD STUFF ABOUT KD_TREE HERE
+   *
    * Otherwise, run icp with regular strict parameters.
    * Right now, if a transformation involves both a rotation and a
    * translation, icp cannot find a good match even with loose parameters.
@@ -275,6 +289,9 @@ public :
    * with corresponding filter time, icp time, and fitness scores.
    *
    * Display the relevant clouds using the PCLVisualizer.
+   * Num_its counts the number of iterations that have already
+   * been run - use this variable to display the relevant clouds
+   * once every 5, 10, or arbitrary number of iterations.
    * Convert the icp_transform to the geometry_msgs::Pose type,
    * which consists of a Point for the xyz position
    * and a Quaternion for the 3x3 rotation matrix.
@@ -292,6 +309,7 @@ public :
     // Save the filtered cloud to a pcd file for testing
     pcl::io::savePCDFileASCII("filtered.pcd", *cloud_filtered);
 
+    // First iteration
     if (first_it)
     {
       // Set obj_model cloud
@@ -303,7 +321,7 @@ public :
       // to match orientation of obj_model cloud
       // Translate the filtered cloud to approximately the correct position
       initial_transform (0,0) = cos (theta_);
-      initial_transform (0,1) = -sin(theta_);
+      initial_transform (0,1) = -sin (theta_);
       initial_transform (1,0) = sin (theta_);
       initial_transform (1,1) = cos (theta_);
       initial_transform (0,3) = 0.1;
