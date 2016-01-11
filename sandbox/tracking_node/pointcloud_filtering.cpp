@@ -258,7 +258,9 @@ public :
     tracking_ = nh_private_.advertise<geometry_msgs::Pose>("tracking", 10);
   }
 
-  /* Callback function for incoming point cloud data from the Kinect
+  /* point_cloud_cb
+   *
+   * Callback function for incoming point cloud data from the Kinect
    *
    * First, filters the incoming data to isolate the target object.
    * Downsamples the filtered cloud to decrease the number of points
@@ -362,8 +364,9 @@ public :
       // Check if previous icp_transform was the identity matrix.
       // If so, relax icp parameters because icp could not find a
       // good match (translation and/or rotation was too large).
-      if (equal(Matrix::Identity(), icp_transform)) {
+      if (matrix_equal(Matrix::Identity(), icp_transform)) {
         best_fit_transform = compute_guess(icp_cloud, cloud_filtered, 0.03);
+        cout << "kd_transform matrix" << endl;
         print_matrix(best_fit_transform);
         PointCloud::Ptr kd_cloud (new PointCloud);
         pcl::transformPointCloud(*cloud_filtered, *kd_cloud,
@@ -398,82 +401,74 @@ public :
 
       geometry_msgs::Pose pose = convert_matrix_to_pose(icp_transform);
 
-// Visualize every 10 iterations of icp
-    if (num_its % 5 == 0) {
+      // Visualize every 5 iterations of icp
+      if (num_its % 5 == 0) {
+        // Use the PCLVisualizer to view the obj_model, initial_guess,
+        // filtered, and icp_transform clouds
+        pcl::visualization::PCLVisualizer viewer
+             ("ICP with obj model and inital guess");
+        ROS_INFO("Display visualizer");
 
-/*
-       if (num_its == 5) {
-         publish the message "ready to start tracking"
-         and pause the Rosnode if possible. Start it up again
-	 with the else case upon receiving the message start tracking
- 	}
-*/
-      // Use the PCLVisualizer to view the obj_model, initial_guess,
-      // filtered, and icp_transform clouds
-      pcl::visualization::PCLVisualizer viewer
-           ("ICP with obj model and inital guess");
-      ROS_INFO("Display visualizer");
+        // Define R,G,B colors for the point cloud
+        // White is for the obj model cloud
+        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
+             source_cloud_color_handler (obj_model, 255, 255, 255);
+        // We add the point cloud to the viewer and pass the color handler
+        viewer.addPointCloud (obj_model, source_cloud_color_handler,
+                             "original_cloud");
 
-      // Define R,G,B colors for the point cloud
-      // White is for the obj model cloud
-      pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
-           source_cloud_color_handler (obj_model, 255, 255, 255);
-      // We add the point cloud to the viewer and pass the color handler
-      viewer.addPointCloud (obj_model, source_cloud_color_handler,
-                           "original_cloud");
+        // Red is for the initial guess
+        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
+             transformed_cloud_color_handler (initial_guess, 230, 20, 20);
+        viewer.addPointCloud (initial_guess, transformed_cloud_color_handler,
+                             "transformed_cloud");
 
-      // Red is for the initial guess
-      pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
-           transformed_cloud_color_handler (initial_guess, 230, 20, 20);
-      viewer.addPointCloud (initial_guess, transformed_cloud_color_handler,
-                           "transformed_cloud");
+        // Green is for the actual position of the transformed object
+        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
+             cloud_out_color_handler (cloud_filtered, 20, 245, 20);
+        viewer.addPointCloud (cloud_filtered, cloud_out_color_handler,
+                             "cloud_out");
 
-      // Green is for the actual position of the transformed object
-      pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
-           cloud_out_color_handler (cloud_filtered, 20, 245, 20);
-      viewer.addPointCloud (cloud_filtered, cloud_out_color_handler,
-                           "cloud_out");
-
-     // Blue is for the icp transform
-      pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
-           icp_color_handler (icp_cloud, 20, 20, 245);
-      viewer.addPointCloud (icp_cloud, icp_color_handler, "icp_cloud");
+       // Blue is for the icp transform
+        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
+             icp_color_handler (icp_cloud, 20, 20, 245);
+        viewer.addPointCloud (icp_cloud, icp_color_handler, "icp_cloud");
 
 
-      viewer.addCoordinateSystem (1.0, 0);
-      // Setting background to a dark grey
-      viewer.setBackgroundColor(0.05, 0.05, 0.05, 0);
-      viewer.setPointCloudRenderingProperties
-        (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2,
-         "original_cloud");
-      viewer.setPointCloudRenderingProperties
-        (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2,
-         "transformed_cloud");
-      viewer.setPointCloudRenderingProperties
-        (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "cloud_out");
-      viewer.setPointCloudRenderingProperties
-        (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "icp_cloud");
+        viewer.addCoordinateSystem (1.0, 0);
+        // Setting background to a dark grey
+        viewer.setBackgroundColor(0.05, 0.05, 0.05, 0);
+        viewer.setPointCloudRenderingProperties
+          (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2,
+           "original_cloud");
+        viewer.setPointCloudRenderingProperties
+          (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2,
+           "transformed_cloud");
+        viewer.setPointCloudRenderingProperties
+          (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "cloud_out");
+        viewer.setPointCloudRenderingProperties
+          (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "icp_cloud");
 
-      viewer.spinOnce (3500);
-    }
+        viewer.spinOnce (3500);
+      }
 
-    // Increment the counter for the number of iterations
-    // so I can visualize the clouds every 5 iterations of icp
-    num_its++;
+      // Increment the counter for the number of iterations
+      num_its++;
 
-    // Publish the transform
-    tracking_.publish(pose);
+      // Publish the transform
+      tracking_.publish(pose);
 
-    /* Save the filtered point cloud to a pcd file
-       Don't want to do this usually - too slow
-    pcl::io::savePCDFileASCII("filtered.pcd", *cloud_filtered);
-    pcl::io::savePCDFileASCII("initial_guess.pcd", *initial_guess);
-    pcl::io::savePCDFileASCII("icp_transform.pcd", *icp_cloud);
-    */
+      // Save the filtered point cloud to a pcd file
+      // Don't want to do this usually - too slow
+      pcl::io::savePCDFileASCII("filtered.pcd", *cloud_filtered);
+      pcl::io::savePCDFileASCII("initial_guess.pcd", *initial_guess);
+      pcl::io::savePCDFileASCII("icp_transform.pcd", *icp_cloud);
     }
   }
 
-  /* Helper function to filter a given point cloud
+  /* filter
+   *
+   * Helper function to filter a given point cloud
    * If the private parameter apply_xyz_limits is set to true,
    * then the given cloud is filtered based on the xyz_limits given.
    * If the parameter apply_voxel_grid is set to true,
@@ -491,8 +486,7 @@ public :
     PointCloud::Ptr cloud_filtered_ptr(new PointCloud);
     pcl::PassThrough<Point> pass;
 
-    if (apply_xyz_limits_)
-    {
+    if (apply_xyz_limits_) {
       // X-filtering
       pass.setFilterFieldName("x");
       pass.setFilterLimits(x_filter_min_, x_filter_max_);
@@ -511,8 +505,7 @@ public :
       pass.setInputCloud(cloud_filtered_ptr);
       pass.filter(*cloud_filtered_ptr);
     }
-    else
-    {
+    else {
       cloud_filtered_ptr = cloud;
     }
 
@@ -520,16 +513,14 @@ public :
     // Downsampling using voxel grid
     PointCloud::Ptr cloud_downsampled_ptr(new PointCloud);
 
-    if (apply_voxel_grid_)
-    {
+    if (apply_voxel_grid_) {
       pcl::VoxelGrid<Point> grid;
       grid.setLeafSize(voxel_size_, voxel_size_, voxel_size_);
       grid.setDownsampleAllData(true);
       grid.setInputCloud(cloud_filtered_ptr);
       grid.filter(*cloud_downsampled_ptr);
     }
-    else
-    {
+    else {
       cloud_downsampled_ptr = cloud_filtered_ptr;
     }
 
@@ -537,16 +528,14 @@ public :
     // Statistical outlier removal
     PointCloud::Ptr cloud_outlier_ptr(new PointCloud);
 
-    if (apply_outlier_removal_)
-    {
+    if (apply_outlier_removal_) {
       pcl::StatisticalOutlierRemoval<Point> sor;
       sor.setInputCloud(cloud_downsampled_ptr);
       sor.setMeanK(mean_k_);
       sor.setStddevMulThresh(std_dev_thresh_);
       sor.filter(*cloud_outlier_ptr);
     }
-    else
-    {
+    else {
       cloud_outlier_ptr = cloud_downsampled_ptr;
     }
 
@@ -554,7 +543,9 @@ public :
   }
 
 
-  /* Helper function to run icp on two input clouds
+  /* iterative_closest_point
+   *
+   * Helper function to run icp on two input clouds
    * Parameters include:
    *   Max correspondence distance between two points
    *   Max number of iterations of icp
@@ -568,7 +559,7 @@ public :
    *      the most number of matching points)
    *
    * Takes in two different point clouds and returns the transformation
-   * to get from one to the other
+   * matrix to get from one to the other
    *
    * To speed up icp, decrease the number of iterations and
    * increase the transformation epsilon.
@@ -585,12 +576,8 @@ public :
     icp.setInputCloud(cloud_in);
     icp.setInputTarget(cloud_out);
 
-    // Set the max correspondence distance to 5cm
-    // (e.g. correspondences with higher distances will be ignored)
     icp.setMaxCorrespondenceDistance (max_corres_dist);
-    // Set the maximum number of iterations (criterion 1)
     icp.setMaximumIterations (max_it);
-    // Set the transformation epsilon (criterion 2)
     icp.setTransformationEpsilon (transf_epsilon);
     icp.setRANSACOutlierRejectionThreshold (r_outlier_thres);
     icp.setRANSACIterations (r_max_it);
@@ -605,12 +592,14 @@ public :
     return icp.getFinalTransformation();
   }
 
-  /* Returns true if two arrays are element-wise equal
+  /* matrix_equal
+   *
+   * Returns true if two arrays are element-wise equal
    * Used to determine if one matrix is equivalent to another matrix,
    * in which case you relax the icp parameters because it does not
    * find enough correspondences
    */
-  bool equal (Matrix input, Matrix output)
+  bool matrix_equal (Matrix input, Matrix output)
   {
     for (int i = 0; i < 4; ++i)
     {
@@ -623,6 +612,10 @@ public :
     return true;
   }
 
+  /* print_matrix
+   *
+   * Prints the elements of a 4x4 matrix by row
+   */
   void print_matrix (Matrix input)
   {
     for (int i = 0; i < 4; i++)
@@ -636,20 +629,11 @@ public :
     return;
   }
 
-  void fill_matrix(Matrix input, float n)
-  {
-    for (int i = 0; i < 4; i++)
-    {
-      for (int j = 0; j < 4; j++)
-      {
-        input(i,j) = n;
-      }
-    }
-    return;
-  }
-
-  // Given a point cloud, compute_centroid will find the centroid
-  // and return it as an Eigen::Vector4f
+  /* compute_centroid
+   *
+   * Given a point cloud, finds the centroid
+   * and returns it as an Eigen::Vector4f
+   */
   Eigen::Vector4f compute_centroid(PointCloud cloud)
   {
     // Zero vector
@@ -660,8 +644,7 @@ public :
     int cp = 0;
 
     // If the data is dense, we don't need to check for NaN
-    if (cloud.is_dense)
-    {
+    if (cloud.is_dense) {
       for (size_t i = 0; i < cloud.points.size (); ++i)
         centroid += cloud.points[i].getVector4fMap ();
 
@@ -670,8 +653,7 @@ public :
     }
 
     // NaN or Inf values could exist => check for them
-    else
-    {
+    else {
       for (size_t i = 0; i < cloud.points.size (); ++i)
       {
         // Check if the point is invalid
@@ -691,7 +673,9 @@ public :
   }
 
 
-  /* Given icp's previous guess and the new filtered input cloud,
+  /* compute_guess
+   *
+   * Given icp's previous guess and the new filtered input cloud,
    * compute_guess finds the distance between the two centroids
    * of the clouds and does a kd-tree nearest neighbor search
    * to find the next initial_guess.
@@ -706,7 +690,7 @@ public :
    * with a better initial_guess.
    */
   Matrix compute_guess(PointCloud::Ptr source_cloud,
-                     PointCloud::Ptr moved_cloud, float radius)
+                       PointCloud::Ptr moved_cloud, float radius)
   {
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     std::vector<int> pointIdxRadiusSearch;
@@ -774,55 +758,70 @@ public :
 
       num_matches = 0;
 
+      // Visualize the clouds to see how accurate the kdtree search is
       printf(  "\nPoint cloud colors :  white  = original point cloud\n"
                "                        red  = transformed point cloud\n"
                "                        blue = moved point cloud\n");
-//               "                        green = rotated point cloud\n");
       pcl::visualization::PCLVisualizer viewer ("Matrix transformation example");
 
-//        pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> rotated_cloud_color_handler (rotated_cloud, 20, 245, 20); // green
-//          viewer.addPointCloud (rotated_cloud, rotated_cloud_color_handler,             "rotated_cloud");
+      pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
+        transformed_cloud_color_handler (transformed_cloud, 230, 20, 20);
+      viewer.addPointCloud (transformed_cloud, transformed_cloud_color_handler,
+                            "transformed_cloud");
 
-
-      pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> transformed_cloud_color_handler (transformed_cloud, 230, 20, 20); // Red
-      viewer.addPointCloud (transformed_cloud, transformed_cloud_color_handler, "transformed_cloud");
-
-      pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> moved_cloud_color_handler (moved_cloud, 20, 230, 230); // blue
-      viewer.addPointCloud (moved_cloud, moved_cloud_color_handler, "moved_cloud");
+      pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
+             moved_cloud_color_handler (moved_cloud, 20, 230, 230);
+      viewer.addPointCloud (moved_cloud, moved_cloud_color_handler,
+                            "moved_cloud");
 
       viewer.addCoordinateSystem (1.0, 0);
       viewer.setBackgroundColor(0.05, 0.05, 0.05, 0);
 
-      viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "transformed_cloud");
-//      viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "rotated_cloud");
-      viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "moved_cloud");
+      viewer.setPointCloudRenderingProperties
+        (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "transformed_cloud");
+      viewer.setPointCloudRenderingProperties
+        (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "moved_cloud");
 
-      while (!viewer.wasStopped ()) { // Display the visualiser until 'q' key is pressed
+      // Display visualizer until 'q' is pressed
+      while (!viewer.wasStopped ()) {
         viewer.spinOnce ();
       }
     }
 
-    pcl::PointCloud<pcl::PointXYZ>::Ptr best_transform_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
-    pcl::transformPointCloud (*moved_cloud, *best_transform_cloud,best_fit_transf);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr best_transform_cloud
+            (new pcl::PointCloud<pcl::PointXYZ> ());
+    pcl::transformPointCloud (*moved_cloud, *best_transform_cloud,
+                              best_fit_transf);
 
     pcl::visualization::PCLVisualizer viewer ("Matrix transformation example");
 
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> best_transform_cloud_color_handler (best_transform_cloud, 245, 20, 20); // red
-    viewer.addPointCloud (best_transform_cloud,          best_transform_cloud_color_handler, "best_transform_cloud");
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
+      best_transform_cloud_color_handler (best_transform_cloud, 245, 20, 20);
+    viewer.addPointCloud (best_transform_cloud,
+                          best_transform_cloud_color_handler,
+                          "best_transform_cloud");
 
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> best_fit_cloud_color_handler (best_fit_cloud, 20, 245, 20); // green
-    viewer.addPointCloud (best_fit_cloud, best_fit_cloud_color_handler, "best_fit_cloud");
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
+      best_fit_cloud_color_handler (best_fit_cloud, 20, 245, 20);
+    viewer.addPointCloud (best_fit_cloud, best_fit_cloud_color_handler,
+                          "best_fit_cloud");
 
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> source_cloud_color_handler (source_cloud, 255, 255, 255); // white
-    viewer.addPointCloud (source_cloud, source_cloud_color_handler, "source_cloud");
+    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
+      source_cloud_color_handler (source_cloud, 255, 255, 255);
+    viewer.addPointCloud (source_cloud, source_cloud_color_handler,
+                          "source_cloud");
 
     viewer.addCoordinateSystem (1.0, 0);
-    viewer.setBackgroundColor(0.05, 0.05, 0.05, 0); // Setting background to a    dark grey
+    viewer.setBackgroundColor(0.05, 0.05, 0.05, 0);
 
-    viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "best_transform_cloud");
-    viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "best_fit_cloud");
-    viewer.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "source_cloud");
-    while (!viewer.wasStopped ()) { // Display the visualiser until 'q' key is pressed
+    viewer.setPointCloudRenderingProperties
+      (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2,
+       "best_transform_cloud");
+    viewer.setPointCloudRenderingProperties
+      (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "best_fit_cloud");
+    viewer.setPointCloudRenderingProperties
+      (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "source_cloud");
+    while (!viewer.wasStopped ()) {
       viewer.spinOnce ();
     }
 
@@ -830,9 +829,12 @@ public :
   }
 
 
-  /* Saves the data from filtering time, icp time, and fitness score
+  /* save_info
+   *
+   * Saves the data from filtering time, icp time, and fitness score
    * into separate files
    * Used to graph data vs iteration number to look for trends
+   * Look at data analysis file to see how data was used
    */
   void save_info(const std::string &file_name, double data)
   {
@@ -842,7 +844,9 @@ public :
     fs.close();
   }
 
-  /* Converts a 3x3 rotation matrix into a quaternion of the form
+  /* convert_matrix_to_quat
+   *
+   * Converts a 3x3 rotation matrix into a quaternion of the form
    * w + xi + yj + zk
    * Used to publish the position and orientation of the icp_transform
    * as a geometry_msgs::Pose object, which consists of a Point
@@ -885,36 +889,31 @@ public :
     max3 = std::max(max2, q3_sq);
 
     // Solve for the other values using the other 6 equations
-    if (max3 == q0_sq)
-    {
+    if (max3 == q0_sq) {
       q0 = sqrt(q0_sq);
       q1 = (0.25 * (r32 - r23)) / q0;
       q2 = (0.25 * (r13 - r31)) / q0;
       q3 = (0.25 * (r21 - r12)) / q0;
     }
-    else if (max3 == q1_sq)
-    {
+    else if (max3 == q1_sq) {
       q1 = sqrt(q1_sq);
       q0 = (0.25 * (r32 - r23)) / q1;
       q2 = (0.25 * (r12 + r21)) / q1;
       q3 = (0.25 * (r13 + r31)) / q1;
     }
-    else if (max3 == q2_sq)
-    {
+    else if (max3 == q2_sq) {
       q2 = sqrt(q2_sq);
       q0 = (0.25 * (r13 - r31)) / q2;
       q1 = (0.25 * (r12 + r21)) / q2;
       q3 = (0.25 * (r23 + r32)) / q2;
     }
-    else if (max3 == q3_sq)
-    {
+    else if (max3 == q3_sq) {
       q3 = sqrt(q3_sq);
       q0 = (0.25 * (r21 - r12)) / q3;
       q1 = (0.25 * (r13 + r31)) / q3;
       q2 = (0.25 * (r23 + r32)) / q3;
     }
-    else
-    {
+    else {
       cout << "Double comparison is wrong, did not find match" << endl;
       return quat;
     }
@@ -925,7 +924,9 @@ public :
   }
 
 
-  /* Convert the 4x4 transformation matrix to a quaternion
+  /* convert_matrix_to_pose
+   *
+   * Convert the 4x4 transformation matrix to a quaternion
    * and a position vector, a point.
    * This is so the transformation can be published as a
    * geometry_msgs::Pose object, which consists of a Point
@@ -971,7 +972,7 @@ int main(int argc, char **argv)
 {
   ros::init(argc, argv, "point_cloud_filtering");
   PointCloudFiltering node;
-/* as long as there is no message that says stop, keep spinning */
+  // Keeps spinning until user uses Ctrl-c
   ros::spin();
   return 0;
 }
