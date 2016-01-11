@@ -2,6 +2,7 @@
  * pointcloud_filtering.cpp
  *
  * DeeDee Han
+ * dthan@andrew.cmu.edu
  *
  * This is all the main code for the tracking node.
  *
@@ -24,7 +25,9 @@
  * The third section is the main callback function for the node. This
  * function filters the incoming data for the object, transforms the
  * resulting cloud, and runs icp on the filtered cloud and an initial_guess
- * cloud.
+ * cloud. If the transformation returned by icp is not accurate enough,
+ * a kdtree_search is run to return a better initial guess cloud, and
+ * icp is run a second time.
  */
 
 #include <iostream>
@@ -54,6 +57,8 @@
 #include <Eigen/Core>
 #include "tf/transform_datatypes.h"
 
+// If ICP_PARAMS is defined, then you can set parameters for icp
+// from the command line when this file is run
 #define ICP_PARAMSx
 
 typedef pcl::PointXYZ      Point;
@@ -104,6 +109,8 @@ public :
    *   a 4x4 matrix to transform the incoming data to the correct pose
    *   a 4x4 matrix representing icp's guess of the best homogeneous transform
    *   a 4x4 matrix representing kd_tree's guess of the best transform
+   *   a boolean variable to determine if this run is the first iteration
+   *   a counter for the number of iterations already run
    */
   PointCloud::Ptr obj_model;
   PointCloud::Ptr initial_guess;
@@ -201,8 +208,7 @@ public :
     // The z filter min should not change because the Kinect can't detect
     // objects that are less than ~50 cm away
     nh_private_.param("z_filter_min", z_filter_min_, 0.5);
-    // The max can change, however. The Kinect can sense objects
-    // up to 3 m away
+    // The max can change, however. The Kinect can sense objects up to 3 m away
     nh_private_.param("z_filter_max", z_filter_max_, 0.9);
     nh_private_.param("voxel_size", voxel_size_, 0.0099);
     nh_private_.param("mean_k", mean_k_, 50);
@@ -267,22 +273,19 @@ public :
    * On each successive iteration, run icp with strict or loose
    * parameters based on the transformation matrix of the previous
    * iteration. If icp failed to find a match and returned the
-   * identity matrix, then relax the icp parameters for one iteration.
-   * (This works for large translations with no rotation).
-   *
-   * ADD STUFF ABOUT KD_TREE HERE
+   * identity matrix, then run a kdtree nearest neighbors search algorithm.
+   * If the transformation incorporated a rotation and a translation,
+   * use kdtree to find a better initial_guess cloud. Rotate the cloud
+   * 45 degrees each time through a full 360 degrees and take the cloud
+   * with the most nearest neighbors within a certain radius as the new
+   * initial_guess cloud. This finds a better guess of the change in
+   * orientation. Find the distance between the centroids of the original
+   * cloud and the transformed cloud to account for the translation part
+   * of the transformation. Then relax the icp parameters for one iteration.
+   * Currently, kdtree search returns the best_fit cloud as described above,
+   * but when icp is run again, it always returns the identity matrix.
    *
    * Otherwise, run icp with regular strict parameters.
-   * Right now, if a transformation involves both a rotation and a
-   * translation, icp cannot find a good match even with loose parameters.
-   * (Ideally, in this case, this function would then do a nearest neighbor
-   * search with kdtree and get an initial_guess with a closer
-   * orientation and xyz position to feed into icp.
-   * This would take a bit more time, but would make the algorithm
-   * more robust. Need to do more data analysis after I finish
-   * writing the code to see how much more time it takes.
-   * Right now, still working on writing it.
-   * Refer to the matrix_transform.cpp file for code).
    *
    * Refer to the file on Google Drive for data analysis of the
    * current code. Includes several different transformations
