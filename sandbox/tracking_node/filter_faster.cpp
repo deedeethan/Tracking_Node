@@ -1,15 +1,14 @@
 /*
-
-My attempt to write my own filtering function because I thought
-the existing one I was using wasn't fast enough.
-
-As far as I remember, doesn't compile. 
-
-Saved for reference.
-
-*/
-
-
+ * filter_faster.cpp
+ *
+ * DeeDee Han
+ * dthan@andrew.cmu.edu
+ *
+ * My attempt to write my own filtering function because I thought
+ * the existing one I was using wasn't fast enough.
+ * As far as I remember, doesn't compile.
+ * Saved for reference.
+ */
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
@@ -72,7 +71,7 @@ public:
       pointCloudCb,
       this);
 
-//    cloud_transformed = 
+//    cloud_transformed =
     // Declare the point cloud filtered topic
     point_cloud_filtered_ = nh_private_.advertise<PointCloud>("output", 1);
   }
@@ -90,7 +89,7 @@ public:
     pass.setFilterLimits(x_filter_min_, x_filter_max_);
     pass.setInputCloud(input_cloud);
     pass.filter(*cloud_filtered_ptr);
-*/  
+*/
     // PointCloud::Ptr cloud_downsampled = filter(cloud.makeShared());
     // ideally want to pass two point clouds of the same object to icp algorithm
   //  cloud_transformed = iterative_closest_point(cloud_downsampled, cloud_transformed);
@@ -127,11 +126,11 @@ public:
     int oii = 0;
 
     if (apply_xyz_limits_)
-    {       
+    {
       oud->points[i].x < x_filter_min_ || cloud->points[i].x > x_filt    er_max_/ Attempt to get the field name's index
       std::vector<pcl::PCLPointField> fields;
       int distance_idx = pcl::getFieldIndex(*input_, filter_field_name_, fields);
- 
+
       // Filter for non-finite entries and the specified field limits
       // iii is input indices iterator
       for (int iii = 0; iii < static_cast<int> (indices_->size()); ++iii)
@@ -143,12 +142,12 @@ public:
         {
  	  continue;
         }
-        
+
 	// Get the field's value
  	const uint8_t* pt_data = reinterpret_cast<const uint8_t*> (&input_->points[(*indices_)[iii]]);
   	float field_value = 0;
         memcpy (&field_value, pt_data + fields[distance_idx].offset, sizeof(float));
- 
+
   	// Remove NAN/INF/-INF values
         if (!pcl_isfinite(field_value))
  	{
@@ -159,14 +158,14 @@ public:
 	if (!negative_ && (field_value < filter_limit_min_ || field_value > filter_limit_max))
 	{
 	  continue;
-	} 	
+	}
 
 	// otherwise it was an inlier and stays in output cloud
 	cloud[oii++] = (*indices_)[iii];
       }
     }
-    
-    cloud.resize(oii);   
+
+    cloud.resize(oii);
   }
 */
 };

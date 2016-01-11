@@ -1,13 +1,17 @@
 /*
-
-Takes in a pcd file of data taken from the Kinect.
-Filters the point cloud for the object.
-Transforms the filtered cloud and runs icp.
-Visualizes the input and resulting clouds.
-
-Used for testing.
-
-*/
+ * iterative_closest_point.cpp
+ *
+ * DeeDee Han
+ * dthan@andrew.cmu.edu
+ *
+ * Takes in a pcd file of data taken from the Kinect.
+ * Filters the point cloud for the object.
+ * Transforms the filtered cloud and runs icp.
+ * Visualizes the input and resulting clouds.
+ *
+ * Used for testing.
+ *
+ */
 
 
 #include <iostream>
@@ -60,7 +64,7 @@ int
   pass.setFilterLimits(-0.3, 0.45);
   pass.setKeepOrganized(false);
   pass.setInputCloud(cloud_out);
-  pass.filter(*cloud_filtered_ptr);  
+  pass.filter(*cloud_filtered_ptr);
 
   pass.setFilterFieldName("y");
   pass.setFilterLimits(-0.25, 0.2);
@@ -106,7 +110,7 @@ int
     initial_transform (0,0) = cos (theta_);
     initial_transform (0,1) = -sin(theta_);
     initial_transform (1,0) = sin (theta_);
-    initial_transform (1,1) = cos (theta_); 
+    initial_transform (1,1) = cos (theta_);
     initial_transform (0,3) = 0.1;
     initial_transform (1,3) = 0.12;
     initial_transform (2,3) = 0.62;
@@ -130,7 +134,7 @@ int
   icp.setRANSACIterations (200);
 
 //  begin = ros::Time::now();
-  pcl::PointCloud<pcl::PointXYZ>::Ptr Final (new pcl::PointCloud<pcl::PointXYZ> ()); 
+  pcl::PointCloud<pcl::PointXYZ>::Ptr Final (new pcl::PointCloud<pcl::PointXYZ> ());
   icp.align(*Final);
   std::cout << "ICP results - " << std::endl;
   std::cout << "has converged:" << icp.hasConverged() << " score: " <<
@@ -141,7 +145,7 @@ int
 
 //  ros::Duration time_icp = ros::Time::now() - begin;
 //  secs = time_icp.toSec();
-//  std::cout << "time to run icp: " << secs << endl; 
+//  std::cout << "time to run icp: " << secs << endl;
 
   pcl::visualization::PCLVisualizer viewer ("Rigid transformation example");
 
@@ -158,11 +162,11 @@ int
 
 
 // Green is for the actual position of the transformed object
-  pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> cloud_out_color_handler (cloud_filtered_ptr, 20, 245, 20); // Green 
+  pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> cloud_out_color_handler (cloud_filtered_ptr, 20, 245, 20); // Green
   viewer.addPointCloud (cloud_filtered_ptr, cloud_out_color_handler, "cloud_out");
 
   // Blue is for the actual position of the transformed object
-  pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> cloud_transformed_color_handler (cloud_transformed, 20, 20, 245); // Blue 
+  pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> cloud_transformed_color_handler (cloud_transformed, 20, 20, 245); // Blue
   viewer.addPointCloud (cloud_transformed, cloud_transformed_color_handler, "initial_transform");
 
   viewer.addCoordinateSystem (1.0, 0);
