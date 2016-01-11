@@ -313,8 +313,7 @@ public :
     pcl::io::savePCDFileASCII("filtered.pcd", *cloud_filtered);
 
     // First iteration
-    if (first_it)
-    {
+    if (first_it) {
       // Set obj_model cloud
       PointCloud::Ptr obj_model (new PointCloud);
       pcl::io::loadPCDFile ("big_triangle.pcd", *obj_model);
@@ -331,7 +330,7 @@ public :
       initial_transform (1,3) = 0.15;
       initial_transform (2,3) = 0.62;
 
-      // Transfom the obj model to get an initial guess
+      // Transform the obj model to get an initial guess
       PointCloud::Ptr initial_guess (new PointCloud);
       pcl::transformPointCloud(*obj_model, *initial_guess,
                                initial_transform);
@@ -354,11 +353,7 @@ public :
       first_it = false;
     }
 
-    else
-    {
-/* if you get the message "start tracking" from the server,
-   only run the else case because you've already found the
-   object in the world. Send back the initial guess  */
+    else {
       // Previous icp_transform becomes new initial_transform matrix
       // Previous icp_cloud becomes new initial_guess
       initial_transform = get_icp_transform();
@@ -368,9 +363,7 @@ public :
       // If so, relax icp parameters because icp could not find a
       // good match (translation and/or rotation was too large).
       if (equal(Matrix::Identity(), icp_transform)) {
-        best_fit_transform = compute_guess(icp_cloud,
-                                                  cloud_filtered, 0.03);
-        cout << "kd_transform matrix" << endl;
+        best_fit_transform = compute_guess(icp_cloud, cloud_filtered, 0.03);
         print_matrix(best_fit_transform);
         PointCloud::Ptr kd_cloud (new PointCloud);
         pcl::transformPointCloud(*cloud_filtered, *kd_cloud,
@@ -382,12 +375,8 @@ public :
       }
 
       // Run icp with original parameters and get the final transformation
-//      else {
-        icp_transform = iterative_closest_point(initial_guess,
-                                                cloud_filtered,
-                                                0.01, 150, 0.0001, 0.005,
-                                                150);
-//      }
+      icp_transform = iterative_closest_point(initial_guess, cloud_filtered,
+                                              0.01, 150, 0.0001, 0.005, 150);
       cout << "ICP transformation - " << endl;
       cout << icp_transform << endl << endl;
 
