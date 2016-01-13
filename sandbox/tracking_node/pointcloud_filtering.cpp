@@ -413,7 +413,6 @@ public :
         // White is for the obj model cloud
         pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
              source_cloud_color_handler (obj_model, 255, 255, 255);
-        // We add the point cloud to the viewer and pass the color handler
         viewer.addPointCloud (obj_model, source_cloud_color_handler,
                              "original_cloud");
 
@@ -429,14 +428,13 @@ public :
         viewer.addPointCloud (cloud_filtered, cloud_out_color_handler,
                              "cloud_out");
 
-       // Blue is for the icp transform
+        // Blue is for the icp transform
         pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ>
              icp_color_handler (icp_cloud, 20, 20, 245);
         viewer.addPointCloud (icp_cloud, icp_color_handler, "icp_cloud");
 
 
         viewer.addCoordinateSystem (1.0, 0);
-        // Setting background to a dark grey
         viewer.setBackgroundColor(0.05, 0.05, 0.05, 0);
         viewer.setPointCloudRenderingProperties
           (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2,

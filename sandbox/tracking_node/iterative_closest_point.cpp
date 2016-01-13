@@ -1,16 +1,12 @@
 /*
  * iterative_closest_point.cpp
  *
- * DeeDee Han
- * dthan@andrew.cmu.edu
- *
  * Takes in a pcd file of data taken from the Kinect.
  * Filters the point cloud for the object.
  * Transforms the filtered cloud and runs icp.
  * Visualizes the input and resulting clouds.
  *
  * Used for testing.
- *
  */
 
 

@@ -18,5 +18,9 @@ The other files in this directory are
   - pcd files containing test point clouds with certain orientations
   - pcd file of primary object I used to test, big_triangle.pcd
   - cpp files containing implementations of pre-existing algorithms
-    from the PCL documentation for testing
+    from the PCL documentation for testing (iterative_closest_point.cpp,
+    kdtree_search.cpp, matrix_transform.cpp)
+  - cpp files containing data points from tests so I could graph them
+    and see trends (filter_time.cpp, fitness_score.cpp, icp_time.cpp)
+
 

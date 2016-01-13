@@ -1,13 +1,11 @@
 /*
-
-Includes helper functions to compute the centroid of a given cloud,
-to run kdtree search on several different orientations of the same
-input point cloud, and to manually rotate an input point cloud
-by a given number of degrees and translate it by a given distance.
-
-Used for testing.
-
-*/
+ * Includes helper functions to compute the centroid of a given cloud,
+ * to run kdtree search on several different orientations of the same
+ * input point cloud, and to manually rotate an input point cloud
+ * by a given number of degrees and translate it by a given distance.
+ *
+ * Used for testing.
+ */
 
 #include <iostream>
 #include <cmath>
