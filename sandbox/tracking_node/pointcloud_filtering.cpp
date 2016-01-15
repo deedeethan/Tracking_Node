@@ -61,6 +61,10 @@
 // from the command line when this file is run
 #define ICP_PARAMSx
 
+// If KDTREE is defined, run the kdtree nearest neighbors search
+// algorithm after icp fails to find a match
+#define KDTREE
+
 typedef pcl::PointXYZ      Point;
 typedef pcl::PointCloud<Point> PointCloud;
 typedef Eigen::Matrix4f Matrix;
@@ -365,6 +369,7 @@ public :
       // If so, relax icp parameters because icp could not find a
       // good match (translation and/or rotation was too large).
       if (matrix_equal(Matrix::Identity(), icp_transform)) {
+#ifdef KDTREE
         best_fit_transform = compute_guess(icp_cloud, cloud_filtered, 0.03);
         cout << "kd_transform matrix" << endl;
         print_matrix(best_fit_transform);
@@ -375,11 +380,17 @@ public :
         set_icp_transform(best_fit_transform);
 
         ROS_INFO("icp run with kdtree_search");
+        // Run icp with original parameters and get the final transformation
+        icp_transform = iterative_closest_point(initial_guess, cloud_filtered,
+                                                0.01, 150, 0.0001, 0.005, 150);
+#else
+        // Run icp with looser parameters.
+        // This works well for one big translation
+        icp_transform = iterative_closest_point(initial_guess, cloud_filtered,
+                                                0.1, 100, 0.0001, 0.005, 150);
+#endif
       }
 
-      // Run icp with original parameters and get the final transformation
-      icp_transform = iterative_closest_point(initial_guess, cloud_filtered,
-                                              0.01, 150, 0.0001, 0.005, 150);
       cout << "ICP transformation - " << endl;
       cout << icp_transform << endl << endl;
 
