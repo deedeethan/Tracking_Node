@@ -316,7 +316,8 @@ public :
     set_cloud_filtered(cloud_filtered);
     ros::Time next = ros::Time::now();
     // Save the filtered cloud to a pcd file for testing
-    pcl::io::savePCDFileASCII("filtered.pcd", *cloud_filtered);
+    // The filtered.pcd file is in the directory test_pcd_files
+    // pcl::io::savePCDFileASCII("filtered.pcd", *cloud_filtered);
 
     // First iteration
     if (first_it) {
@@ -369,6 +370,19 @@ public :
       // If so, relax icp parameters because icp could not find a
       // good match (translation and/or rotation was too large).
       if (matrix_equal(Matrix::Identity(), icp_transform)) {
+
+        // Currently, this implementation of a kdtree nearest neighbors
+        // search algorithm does not work in conjunction with icp.
+        // Every time icp returns the identity matrix, kdtree is run
+        // and returns the correct point cloud with most nearest neighbors
+        // within a certain radius, but somehow this is not passed
+        // to icp correctly. Once kdtree is run and the result is passed
+        // to icp, icp is never able to find a good match. It returns
+        // the identity matrix every time, so this essentially becomes
+        // an infinite loop - icp doesn't find a match, so it runs
+        // kdtree. Kdtree does not return the best point cloud to icp
+        // correctly, so icp can't find a good match, and the process
+        // repeats.
 #ifdef KDTREE
         best_fit_transform = compute_guess(icp_cloud, cloud_filtered, 0.03);
         cout << "kd_transform matrix" << endl;
@@ -469,9 +483,10 @@ public :
 
       // Save the filtered point cloud to a pcd file
       // Don't want to do this usually - too slow
-      pcl::io::savePCDFileASCII("filtered.pcd", *cloud_filtered);
-      pcl::io::savePCDFileASCII("initial_guess.pcd", *initial_guess);
-      pcl::io::savePCDFileASCII("icp_transform.pcd", *icp_cloud);
+      // These .pcd files are in the directory test_pcd_files
+      // pcl::io::savePCDFileASCII("filtered.pcd", *cloud_filtered);
+      // pcl::io::savePCDFileASCII("initial_guess.pcd", *initial_guess);
+      // pcl::io::savePCDFileASCII("icp_transform.pcd", *icp_cloud);
     }
   }
 

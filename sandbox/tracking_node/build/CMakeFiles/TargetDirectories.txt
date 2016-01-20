@@ -3,7 +3,6 @@
 /home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/ROSBUILD_gensrv_cpp.dir
 /home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/ROSBUILD_gensrv_lisp.dir
 /home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/clean-test-results.dir
-/home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/matrix_transform.dir
 /home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/pointcloud_filtering.dir
 /home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/rosbuild_precompile.dir
 /home/simplehands/fuerte_workspace/sandbox/tracking_node/build/CMakeFiles/rosbuild_premsgsrvgen.dir

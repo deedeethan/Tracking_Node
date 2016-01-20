@@ -161,19 +161,6 @@ clean-test-results/fast:
 .PHONY : clean-test-results/fast
 
 #=============================================================================
-# Target rules for targets named matrix_transform
-
-# Build rule for target.
-matrix_transform: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 matrix_transform
-.PHONY : matrix_transform
-
-# fast build rule for target.
-matrix_transform/fast:
-	$(MAKE) -f CMakeFiles/matrix_transform.dir/build.make CMakeFiles/matrix_transform.dir/build
-.PHONY : matrix_transform/fast
-
-#=============================================================================
 # Target rules for targets named pointcloud_filtering
 
 # Build rule for target.
@@ -316,30 +303,6 @@ tests/fast:
 	$(MAKE) -f CMakeFiles/tests.dir/build.make CMakeFiles/tests.dir/build
 .PHONY : tests/fast
 
-matrix_transform.o: matrix_transform.cpp.o
-.PHONY : matrix_transform.o
-
-# target to build an object file
-matrix_transform.cpp.o:
-	$(MAKE) -f CMakeFiles/matrix_transform.dir/build.make CMakeFiles/matrix_transform.dir/matrix_transform.cpp.o
-.PHONY : matrix_transform.cpp.o
-
-matrix_transform.i: matrix_transform.cpp.i
-.PHONY : matrix_transform.i
-
-# target to preprocess a source file
-matrix_transform.cpp.i:
-	$(MAKE) -f CMakeFiles/matrix_transform.dir/build.make CMakeFiles/matrix_transform.dir/matrix_transform.cpp.i
-.PHONY : matrix_transform.cpp.i
-
-matrix_transform.s: matrix_transform.cpp.s
-.PHONY : matrix_transform.s
-
-# target to generate assembly for a file
-matrix_transform.cpp.s:
-	$(MAKE) -f CMakeFiles/matrix_transform.dir/build.make CMakeFiles/matrix_transform.dir/matrix_transform.cpp.s
-.PHONY : matrix_transform.cpp.s
-
 pointcloud_filtering.o: pointcloud_filtering.cpp.o
 .PHONY : pointcloud_filtering.o
 
@@ -376,7 +339,6 @@ help:
 	@echo "... ROSBUILD_gensrv_lisp"
 	@echo "... clean-test-results"
 	@echo "... edit_cache"
-	@echo "... matrix_transform"
 	@echo "... pointcloud_filtering"
 	@echo "... rebuild_cache"
 	@echo "... rosbuild_precompile"
@@ -389,9 +351,6 @@ help:
 	@echo "... test-results"
 	@echo "... test-results-run"
 	@echo "... tests"
-	@echo "... matrix_transform.o"
-	@echo "... matrix_transform.i"
-	@echo "... matrix_transform.s"
 	@echo "... pointcloud_filtering.o"
 	@echo "... pointcloud_filtering.i"
 	@echo "... pointcloud_filtering.s"
